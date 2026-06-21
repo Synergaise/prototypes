@@ -1,0 +1,10 @@
+{
+  "name": "prototypes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Synergaise prototype sandbox on the gated build rail",
+  "scripts": {
+    "test": "node --test",
+    "lint": "node -e \"process.exit(0)\""
+  }
+}
