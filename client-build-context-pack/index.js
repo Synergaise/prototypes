@@ -13,6 +13,14 @@ function compactList(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
+function nextActionsFrom(build) {
+  if (Array.isArray(build.next_actions)) {
+    return compactList(build.next_actions);
+  }
+
+  return compactList(build.next_action ? [build.next_action] : []);
+}
+
 function createBuildContextPack({ client, build, notes = [], transcripts = [], externalRefs = [] }) {
   const pack = {
     client: {
@@ -36,7 +44,7 @@ function createBuildContextPack({ client, build, notes = [], transcripts = [], e
     risks: compactList(build.risks).concat(notes.filter((note) => note.kind === "risk").map((note) => note.body)),
     access_state: build.access_state || "unknown",
     source_links: externalRefs.map((ref) => ({ system: ref.system, url: ref.url || ref.external_id })),
-    next_actions: compactList(build.next_actions || build.next_action ? [build.next_action] : []),
+    next_actions: nextActionsFrom(build),
     recent_context: notes.slice(0, 5).map((note) => note.body).concat(transcripts.slice(0, 2).map((item) => item.summary)).filter(Boolean)
   };
 
