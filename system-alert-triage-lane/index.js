@@ -1,9 +1,14 @@
-const PROVIDERS = new Set(['pandadoc', 'google_workspace', 'stripe', 'supabase', 'make', 'n8n', 'github', 'openclaw', 'gateway']);
+const PROVIDERS = new Set(['pandadoc', 'google_workspace', 'stripe', 'supabase', 'make', 'n8n', 'github', 'openclaw', 'gateway', 'upwork']);
 const BLOCKER_TYPES = new Set(['auth_expired', 'webhook_deactivated', 'payment_blocked', 'security_alert', 'deadline_risk']);
 const SUPPRESSED_TYPES = new Set(['newsletter', 'product_update', 'marketing', 'billing_receipt']);
+const SECURITY_SUBJECT = /\b(unknown device|new login|password|2fa|mfa|security alert|sign-?in|authentication|oauth|token|api key)\b/i;
 
 function classifyAlert(event = {}) {
-  const provider = normaliseProvider(event.provider);
+  const provider = normaliseProvider(event.provider || event.source_system);
+  const explicitSecurity = hasExplicitSecuritySignal(event);
+  if (explicitSecurity) {
+    return { lane: 'system', action: 'escalate', provider, reason: 'security_signal' };
+  }
   if (!PROVIDERS.has(provider)) {
     return { lane: 'junk', action: 'suppress', provider, reason: 'unknown_provider' };
   }
@@ -36,4 +41,12 @@ function normaliseProvider(provider = '') {
   return String(provider).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
 
-module.exports = { classifyAlert, buildIncident, shouldEscalate, normaliseProvider };
+function hasExplicitSecuritySignal(event = {}) {
+  const headers = event.raw_headers || {};
+  if (headers.security_alert === true || headers.security_alert === 'true') return true;
+  if (event.type === 'security_alert' || event.severity === 'critical') return true;
+  if (normaliseProvider(event.source_system) === 'upwork' && SECURITY_SUBJECT.test(event.subject || '')) return true;
+  return SECURITY_SUBJECT.test(`${event.subject || ''} ${event.snippet || ''}`) && PROVIDERS.has(normaliseProvider(event.provider || event.source_system));
+}
+
+module.exports = { classifyAlert, buildIncident, shouldEscalate, normaliseProvider, hasExplicitSecuritySignal };
